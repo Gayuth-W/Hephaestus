@@ -1,12 +1,14 @@
 package com.gayuth.hephaestus.rca;
 
-import com.gayuth.hephaestus.model.SpanNode;
-import com.gayuth.hephaestus.model.TraceGraph;
-
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+
+import com.gayuth.hephaestus.dto.RcaResultDTO;
+import com.gayuth.hephaestus.enums.Confidence;
+import com.gayuth.hephaestus.model.SpanNode;
+import com.gayuth.hephaestus.model.TraceGraph;
 
 /**
  * Dependency-aware failure root cause analysis.
@@ -20,7 +22,7 @@ import java.util.Set;
  */
 public final class FailureRcaEngine {
 
-    public RcaResult analyze(TraceGraph graph) {
+    public RcaResultDTO analyze(TraceGraph graph) {
         Set<String> rootCauses = new LinkedHashSet<>();
         Set<String> affected = new LinkedHashSet<>();
         collect(graph.root(), rootCauses, affected);
@@ -30,16 +32,16 @@ public final class FailureRcaEngine {
         List<String> victims = new ArrayList<>(affected);
 
         if (causes.isEmpty()) {
-            return new RcaResult(causes, victims,
+            return new RcaResultDTO(causes, victims,
                     "No failing spans in this trace.", Confidence.HIGH);
         }
         if (causes.size() == 1) {
-            return new RcaResult(causes, victims,
+            return new RcaResultDTO(causes, victims,
                     causes.get(0) + " was the deepest failing dependency; "
                             + "failures above it are cascades.",
                     Confidence.HIGH);
         }
-        return new RcaResult(causes, victims,
+        return new RcaResultDTO(causes, victims,
                 causes.size() + " independent failure points ("
                         + String.join(", ", causes) + "); no single origin.",
                 Confidence.MEDIUM);

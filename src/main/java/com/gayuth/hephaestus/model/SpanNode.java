@@ -5,6 +5,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import com.gayuth.hephaestus.dto.SpanDTO;
+
 /** A node in the dependency graph: one span plus the spans it called. */
 public final class SpanNode {
 
