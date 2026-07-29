@@ -31,6 +31,23 @@ public final class AnalysisService {
     private final FailureRcaEngine failureEngine = new FailureRcaEngine();
     private final LatencyAnalysisEngine latencyEngine = new LatencyAnalysisEngine();
 
+    private void walk(SpanNode node, Set<String> rootCauses, String sink,
+            List<GraphNode> nodes, List<GraphEdge> edges, List<TimelineBar> timeline) {
+        boolean isRootCause = rootCauses.contains(node.serviceName());
+        boolean isSink = sink != null && sink.equals(node.serviceName());
+        long self = LatencyAnalysisEngine.exclusiveTime(node);
+
+        nodes.add(new GraphNode(node.spanId(), node.serviceName(), node.span().status().name(), node.span().startTime(),
+                node.span().duration(), self, isRootCause, isSink));
+        timeline.add(new TimelineBar(node.spanId(), node.serviceName(), node.span().startTime(), node.span().duration(),
+                isSink));
+
+        for (SpanNode child : node.children()) {
+            edges.add(new GraphEdge(node.spanId(), child.spanId()));
+            walk(child, rootCauses, sink, nodes, edges, timeline);
+        }
+    }
+
     private boolean anyError(SpanNode node) {
         if (node.isError())
             return true;
