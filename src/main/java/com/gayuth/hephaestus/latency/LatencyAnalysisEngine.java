@@ -3,6 +3,7 @@ package com.gayuth.hephaestus.latency;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 import com.gayuth.hephaestus.model.SpanNode;
 
@@ -28,6 +29,13 @@ public final class LatencyAnalysisEngine {
   private static final double AMBIGUOUS_SHARE = 0.34;
   private static final double AMBIGUOUS_GAP = 0.10;
 
+
+  private void accumulate(SpanNode node, Map<String, Long> acc) {
+    acc.merge(node.serviceName(), exclusiveTime(node), Long::sum);
+    for (SpanNode child : node.children()) {
+      accumulate(child, acc);
+    }
+  }
 
   /** Self time of a single span: duration minus the union of its (clamped) child windows. */
   static long exclusiveTime(SpanNode node) {
