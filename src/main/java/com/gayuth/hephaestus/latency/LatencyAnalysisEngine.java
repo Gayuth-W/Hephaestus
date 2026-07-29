@@ -1,7 +1,10 @@
 package com.gayuth.hephaestus.latency;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+
+import com.gayuth.hephaestus.model.SpanNode;
 
 /**
  * Critical-path / self-time latency analysis.
@@ -26,6 +29,25 @@ public final class LatencyAnalysisEngine {
   private static final double AMBIGUOUS_GAP = 0.10;
 
 
+  /** Self time of a single span: duration minus the union of its (clamped) child windows. */
+  static long exclusiveTime(SpanNode node) {
+    long start = node.span().startTime();
+    long end = node.span().endTime();
+    long duration = node.span().duration();
+    if (node.children().isEmpty()) {
+      return Math.max(0L, duration);
+    }
+    List<long[]> intervals = new ArrayList<>();
+    for (SpanNode child : node.children()) {
+      long cs = Math.max(start, child.span().startTime());
+      long ce = Math.min(end, child.span().endTime());
+      if (ce > cs) {
+        intervals.add(new long[] { cs, ce });
+      }
+    }
+    return Math.max(0L, duration - unionLength(intervals));
+  }
+
   /** Total length covered by a set of intervals, counting overlaps once. */
   static long unionLength(List<long[]> intervals) {
     if (intervals.isEmpty()) {
@@ -47,5 +69,9 @@ public final class LatencyAnalysisEngine {
     }
     covered += curEnd - curStart;
     return covered;
+  }
+
+  private static String pct(double share) {
+    return String.format("%.1f%%", share * 100);
   }
 }
