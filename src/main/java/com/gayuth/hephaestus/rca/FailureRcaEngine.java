@@ -44,4 +44,24 @@ public final class FailureRcaEngine {
                         + String.join(", ", causes) + "); no single origin.",
                 Confidence.MEDIUM);
     }
+
+    /**
+     * Post-order walk.
+     * @return true if the subtree rooted at {@code node} (including it) contains a failing span.
+     */
+    private boolean collect(SpanNode node, Set<String> rootCauses, Set<String> affected) {
+        boolean descendantFails = false;
+        for (SpanNode child : node.children()) {
+            descendantFails |= collect(child, rootCauses, affected);
+        }
+        if (node.isError()) {
+            if (descendantFails) {
+                affected.add(node.serviceName());   // failing, but a dependency also failed
+            } else {
+                rootCauses.add(node.serviceName());  // deepest failing boundary
+            }
+            return true;
+        }
+        return descendantFails;
+    }
 }
