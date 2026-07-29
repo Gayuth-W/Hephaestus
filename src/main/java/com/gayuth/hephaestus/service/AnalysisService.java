@@ -31,6 +31,16 @@ public final class AnalysisService {
     private final FailureRcaEngine failureEngine = new FailureRcaEngine();
     private final LatencyAnalysisEngine latencyEngine = new LatencyAnalysisEngine();
 
+    private boolean anyError(SpanNode node) {
+        if (node.isError())
+            return true;
+        for (SpanNode c : node.children()) {
+            if (anyError(c))
+                return true;
+        }
+        return false;
+    }
+
     private long maxEnd(SpanNode node) {
         long m = node.span().endTime();
         for (SpanNode c : node.children()) {
