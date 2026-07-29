@@ -1,10 +1,14 @@
 package com.gayuth.hephaestus.ingest;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gayuth.hephaestus.dto.ParsedTraceDTO;
 import com.gayuth.hephaestus.dto.SpanDTO;
 import com.gayuth.hephaestus.model.SpanStatus;
 
@@ -17,6 +21,34 @@ import com.gayuth.hephaestus.model.SpanStatus;
 public final class TraceParser {
 
   private final ObjectMapper mapper = new ObjectMapper();
+
+  public ParsedTraceDTO parse(String json) {
+    try {
+      JsonNode root = mapper.readTree(json);
+      String traceId = text(root, "traceId", null);
+
+      JsonNode spansNode = root.get("spans");
+      if (spansNode == null || !spansNode.isArray()) {
+        throw new IllegalArgumentException("trace JSON is missing a 'spans' array");
+      }
+
+      List<SpanDTO> spans = new ArrayList<>();
+      for (JsonNode s : spansNode) {
+        spans.add(new SpanDTO(
+          text(s, "spanId", null),
+          text(s, "parentSpanId", null),
+          text(s, "serviceName", null),
+          s.path("startTime").asLong(0L),
+          s.path("duration").asLong(0L),
+          parseStatus(text(s, "status", "OK")),
+          readAttributes(s.get("attributes"))
+        ));
+      }
+      return new ParsedTraceDTO(traceId, spans);
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException("malformed trace JSON: " + e.getOriginalMessage(), e);
+    }
+  }
 
   private static SpanStatus parseStatus(String raw) {
     return "ERROR".equalsIgnoreCase(raw == null ? "" : raw.trim()) ? SpanStatus.ERROR : SpanStatus.OK;
