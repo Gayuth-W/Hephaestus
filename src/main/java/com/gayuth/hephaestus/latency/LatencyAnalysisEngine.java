@@ -2,10 +2,15 @@ package com.gayuth.hephaestus.latency;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.gayuth.hephaestus.dto.LatencyResultDTO;
+import com.gayuth.hephaestus.dto.ServiceLatencyDTO;
+import com.gayuth.hephaestus.enums.Confidence;
 import com.gayuth.hephaestus.model.SpanNode;
+import com.gayuth.hephaestus.model.TraceGraph;
 
 /**
  * Critical-path / self-time latency analysis.
@@ -29,6 +34,40 @@ public final class LatencyAnalysisEngine {
   private static final double AMBIGUOUS_SHARE = 0.34;
   private static final double AMBIGUOUS_GAP = 0.10;
 
+  public LatencyResultDTO analyze(TraceGraph graph) {
+    long total = Math.max(1L, graph.root().span().duration()); // whole-request wall clock
+
+    Map<String, Long> exclusiveByService = new LinkedHashMap<>();
+    accumulate(graph.root(), exclusiveByService);
+
+    List<ServiceLatencyDTO> breakdown = new ArrayList<>();
+    for (Map.Entry<String, Long> e : exclusiveByService.entrySet()) {
+      breakdown.add(new ServiceLatencyDTO(e.getKey(), e.getValue(), e.getValue() / (double) total));
+    }
+    breakdown.sort(Comparator
+                    .comparingLong(ServiceLatencyDTO::exclusiveTime)
+                    .reversed()
+                    .thenComparing(ServiceLatencyDTO::service));
+
+    ServiceLatencyDTO top = breakdown.get(0);
+    double topShare = top.contribution();
+    double secondShare = breakdown.size() > 1 ? breakdown.get(1).contribution() : 0.0;
+    double gap = topShare - secondShare;
+
+    Confidence confidence;
+    String reason;
+    if (breakdown.size() == 1 || (topShare >= DOMINANT_SHARE && gap >= DOMINANT_GAP)) {
+      confidence = Confidence.HIGH;
+      reason = top.service() + " is the latency sink, spending " + pct(topShare) + " of the request in its own code; its dependencies were not the bottleneck.";
+    } else if (topShare < AMBIGUOUS_SHARE || gap < AMBIGUOUS_GAP) {
+      confidence = Confidence.LOW;
+      reason = "No single dominant latency sink; time is spread across services (top: " + top.service() + " at " + pct(topShare) + ").";
+    } else {
+      confidence = Confidence.MEDIUM;
+      reason = top.service() + " is the likely latency sink at " + pct(topShare) + " of request time, though not strongly dominant.";
+    }
+    return new LatencyResultDTO(top.service(), topShare, confidence, reason, breakdown);
+  }
 
   private void accumulate(SpanNode node, Map<String, Long> acc) {
     acc.merge(node.serviceName(), exclusiveTime(node), Long::sum);
