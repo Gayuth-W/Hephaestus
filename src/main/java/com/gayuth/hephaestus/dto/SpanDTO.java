@@ -12,15 +12,7 @@ import com.gayuth.hephaestus.model.SpanStatus;
  * <p>Times are in milliseconds. {@code parentSpanId} is {@code null} for the
  * root span.
  */
-public record SpanDTO(
-        String spanId,
-        String parentSpanId,
-        String serviceName,
-        long startTime,
-        long duration,
-        SpanStatus status,
-        Map<String, Object> attributes
-) {
+public record SpanDTO(String spanId, String parentSpanId, String serviceName, long startTime, long duration, SpanStatus status, Map<String, Object> attributes) {
     public SpanDTO {
         status = (status == null) ? SpanStatus.OK : status;
         attributes = (attributes == null) ? Map.of() : Map.copyOf(attributes);

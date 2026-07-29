@@ -12,12 +12,7 @@ import com.gayuth.hephaestus.enums.Confidence;
  * {@code affectedServices} are failing services that are NOT root causes -
  * i.e. cascade victims.
  */
-public record RcaResultDTO(
-        List<String> rootCauses,
-        List<String> affectedServices,
-        String reason,
-        Confidence confidence
-) {
+public record RcaResultDTO(List<String> rootCauses, List<String> affectedServices, String reason, Confidence confidence) {
     public boolean hasFailure() {
         return !rootCauses.isEmpty();
     }

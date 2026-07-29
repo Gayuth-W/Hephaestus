@@ -32,18 +32,15 @@ public final class FailureRcaEngine {
         List<String> victims = new ArrayList<>(affected);
 
         if (causes.isEmpty()) {
-            return new RcaResultDTO(causes, victims,
-                    "No failing spans in this trace.", Confidence.HIGH);
+            return new RcaResultDTO(causes, victims, "No failing spans in this trace.", Confidence.HIGH);
         }
         if (causes.size() == 1) {
             return new RcaResultDTO(causes, victims,
-                    causes.get(0) + " was the deepest failing dependency; "
-                            + "failures above it are cascades.",
+                    causes.get(0) + " was the deepest failing dependency; " + "failures above it are cascades.",
                     Confidence.HIGH);
         }
         return new RcaResultDTO(causes, victims,
-                causes.size() + " independent failure points ("
-                        + String.join(", ", causes) + "); no single origin.",
+                causes.size() + " independent failure points (" + String.join(", ", causes) + "); no single origin.",
                 Confidence.MEDIUM);
     }
 
