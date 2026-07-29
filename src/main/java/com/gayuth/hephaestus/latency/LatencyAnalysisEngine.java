@@ -77,7 +77,7 @@ public final class LatencyAnalysisEngine {
   }
 
   /** Self time of a single span: duration minus the union of its (clamped) child windows. */
-  static long exclusiveTime(SpanNode node) {
+  public static long exclusiveTime(SpanNode node) {
     long start = node.span().startTime();
     long end = node.span().endTime();
     long duration = node.span().duration();
