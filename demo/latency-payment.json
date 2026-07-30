@@ -1,0 +1,10 @@
+{
+  "traceId": "latency-parallel-1",
+  "spans": [
+    {"spanId":"a","parentSpanId":null,"serviceName":"api-gateway","startTime":0,"duration":8000,"status":"OK"},
+    {"spanId":"b","parentSpanId":"a","serviceName":"order-service","startTime":100,"duration":700,"status":"OK"},
+    {"spanId":"c","parentSpanId":"a","serviceName":"payment-service","startTime":200,"duration":6200,"status":"OK"},
+    {"spanId":"d","parentSpanId":"c","serviceName":"fraud-check","startTime":300,"duration":1200,"status":"OK"},
+    {"spanId":"e","parentSpanId":"c","serviceName":"card-network","startTime":800,"duration":1200,"status":"OK"}
+  ]
+}
