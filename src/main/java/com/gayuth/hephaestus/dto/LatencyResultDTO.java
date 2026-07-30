@@ -1,4 +1,5 @@
 package com.gayuth.hephaestus.dto;
+
 import java.util.List;
 
 import com.gayuth.hephaestus.enums.Confidence;
@@ -8,6 +9,7 @@ import com.gayuth.hephaestus.enums.Confidence;
  * exclusive (self) time; {@code latencySink} is the top one. When no service
  * clearly dominates, {@code confidence} is LOW and the sink is only nominal.
  */
-public record LatencyResultDTO(String latencySink, double contribution, Confidence confidence, String reason, List<ServiceLatencyDTO> breakdown) {
+public record LatencyResultDTO(String latencySink, double contribution, Confidence confidence, String reason,
+        List<ServiceLatencyDTO> breakdown) {
 
 }
