@@ -1,0 +1,9 @@
+{
+  "traceId": "latency-ambiguous-1",
+  "spans": [
+    {"spanId":"a","parentSpanId":null,"serviceName":"api-gateway","startTime":0,"duration":3000,"status":"OK"},
+    {"spanId":"b","parentSpanId":"a","serviceName":"order-service","startTime":50,"duration":900,"status":"OK"},
+    {"spanId":"c","parentSpanId":"a","serviceName":"payment-service","startTime":1000,"duration":950,"status":"OK"},
+    {"spanId":"d","parentSpanId":"a","serviceName":"shipping-service","startTime":2000,"duration":880,"status":"OK"}
+  ]
+}

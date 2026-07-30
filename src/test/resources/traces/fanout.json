@@ -1,0 +1,8 @@
+{
+  "traceId": "fanout-1",
+  "spans": [
+    {"spanId":"a","parentSpanId":null,"serviceName":"api-gateway","startTime":0,"duration":900,"status":"OK"},
+    {"spanId":"b","parentSpanId":"a","serviceName":"order-service","startTime":50,"duration":300,"status":"OK"},
+    {"spanId":"c","parentSpanId":"a","serviceName":"inventory-service","startTime":60,"duration":250,"status":"OK"}
+  ]
+}
