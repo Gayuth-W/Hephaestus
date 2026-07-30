@@ -50,6 +50,14 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.6.3</version>
+				<configuration>
+					<mainClass>com.gayuth.hephaestus.Cli</mainClass>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 
