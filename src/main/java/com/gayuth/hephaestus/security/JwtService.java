@@ -36,4 +36,16 @@ public class JwtService {
                 .signWith(key)
                 .compact();
     }
+
+    /**
+     * @return validated claims; throws io.jsonwebtoken.JwtException if invalid or
+     *         expired.
+     */
+    public Claims parse(String token) {
+        return Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
 }
