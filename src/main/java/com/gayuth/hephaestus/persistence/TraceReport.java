@@ -50,4 +50,28 @@ public class TraceReport {
         this.rawTrace = rawTrace;
         this.result = result;
     }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public String getTraceId() {
+        return traceId;
+    }
+
+    public String getMode() {
+        return mode;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public String getRawTrace() {
+        return rawTrace;
+    }
+
+    public String getResult() {
+        return result;
+    }
 }
