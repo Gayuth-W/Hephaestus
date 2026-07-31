@@ -43,4 +43,11 @@ public class TraceReport {
 
     protected TraceReport() {
     }
+
+    public TraceReport(String traceId, String mode, String rawTrace, String result) {
+        this.traceId = traceId;
+        this.mode = mode;
+        this.rawTrace = rawTrace;
+        this.result = result;
+    }
 }
