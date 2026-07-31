@@ -25,4 +25,15 @@ public class JwtService {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMinutes = expirationMinutes;
     }
+
+    public String issue(String username, List<String> roles) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(username)
+                .claim("roles", roles)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(expirationMinutes, ChronoUnit.MINUTES)))
+                .signWith(key)
+                .compact();
+    }
 }
