@@ -46,4 +46,9 @@ public class ReportService {
     public List<ReportSummary> history() {
         return repository.findAllSummaries();
     }
+
+    /** The stored analysis JSON for a report, or empty if the id is unknown. */
+    public Optional<JsonNode> result(UUID id) {
+        return repository.findById(id).map(r -> read(r.getResult()));
+    }
 }
