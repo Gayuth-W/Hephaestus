@@ -42,4 +42,8 @@ public class ReportService {
         repository.deleteById(id);
         return true;
     }
+
+    public List<ReportSummary> history() {
+        return repository.findAllSummaries();
+    }
 }
