@@ -67,4 +67,9 @@ public class ReportService {
             throw new IllegalStateException("stored result is not valid JSON", e);
         }
     }
+
+    private String readMode(String resultJson) {
+        JsonNode n = read(resultJson).get("mode");
+        return (n == null || n.isNull()) ? null : n.asText();
+    }
 }
