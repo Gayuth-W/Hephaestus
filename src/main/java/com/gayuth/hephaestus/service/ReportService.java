@@ -1,8 +1,16 @@
 package com.gayuth.hephaestus.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gayuth.hephaestus.persistence.ReportSummary;
+import com.gayuth.hephaestus.persistence.TraceReport;
 import com.gayuth.hephaestus.persistence.TraceReportRepository;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Persists each analysis and serves saved reports + history. Decoupled from the
@@ -17,5 +25,12 @@ public class ReportService {
 
     public ReportService(TraceReportRepository repository) {
         this.repository = repository;
+    }
+
+    /** Store one analysis; returns the new report id. */
+    public UUID save(String traceId, String rawTraceJson, Object result) {
+        String resultJson = write(result);
+        String mode = readMode(resultJson);
+        return repository.save(new TraceReport(traceId, mode, rawTraceJson, resultJson)).getId();
     }
 }
