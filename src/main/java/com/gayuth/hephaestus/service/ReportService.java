@@ -33,4 +33,13 @@ public class ReportService {
         String mode = readMode(resultJson);
         return repository.save(new TraceReport(traceId, mode, rawTraceJson, resultJson)).getId();
     }
+
+    /** Delete a report; returns false if it didn't exist. */
+    public boolean delete(UUID id) {
+        if (!repository.existsById(id)) {
+            return false;
+        }
+        repository.deleteById(id);
+        return true;
+    }
 }
