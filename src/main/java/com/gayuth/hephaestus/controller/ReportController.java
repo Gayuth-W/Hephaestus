@@ -1,5 +1,6 @@
 package com.gayuth.hephaestus.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.gayuth.hephaestus.persistence.ReportSummary;
 import com.gayuth.hephaestus.service.ReportService;
 import org.springframework.http.ResponseEntity;
@@ -31,5 +32,12 @@ public class ReportController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         return reports.delete(id) ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<JsonNode> byId(@PathVariable UUID id) {
+        return reports.result(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }
