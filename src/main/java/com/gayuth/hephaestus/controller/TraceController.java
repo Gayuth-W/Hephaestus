@@ -38,6 +38,9 @@ public class TraceController {
 
         ParsedTraceDTO parsed = parser.parse(traceNode.toString());
         TraceGraph graph = builder.build(parsed.traceId(), parsed.spans());
-        return analysis.analyze(graph, Mode.from(type));
+        AnalyzeResponse response = analysis.analyze(graph, Mode.from(type));
+
+        reports.save(parsed.traceId(), traceNode.toString(), response);
+        return response;
     }
 }
