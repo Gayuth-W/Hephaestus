@@ -59,4 +59,12 @@ public class ReportService {
             throw new IllegalStateException("could not serialize analysis result", e);
         }
     }
+
+    private JsonNode read(String json) {
+        try {
+            return mapper.readTree(json);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("stored result is not valid JSON", e);
+        }
+    }
 }
