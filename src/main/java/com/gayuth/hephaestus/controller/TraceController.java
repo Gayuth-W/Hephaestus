@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.gayuth.hephaestus.service.ReportService;
 
 /**
  * Thin HTTP shim over {@link AnalysisService}. Accepts either
@@ -24,6 +25,11 @@ public class TraceController {
     private final TraceParser parser = new TraceParser();
     private final TraceGraphBuilder builder = new TraceGraphBuilder();
     private final AnalysisService analysis = new AnalysisService();
+    private final ReportService reports;
+
+    public TraceController(ReportService reports) {
+        this.reports = reports;
+    }
 
     @PostMapping("/analyze")
     public AnalyzeResponse analyze(@RequestBody JsonNode body) {
