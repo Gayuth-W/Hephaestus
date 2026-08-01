@@ -51,4 +51,12 @@ public class ReportService {
     public Optional<JsonNode> result(UUID id) {
         return repository.findById(id).map(r -> read(r.getResult()));
     }
+
+    private String write(Object o) {
+        try {
+            return mapper.writeValueAsString(o);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("could not serialize analysis result", e);
+        }
+    }
 }
