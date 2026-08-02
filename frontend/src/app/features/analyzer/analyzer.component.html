@@ -1,0 +1,103 @@
+<section class="analyzer">
+  <div class="input-block">
+    <div class="input-head">
+      <span class="lbl">// trace input</span>
+      <span class="examples">
+        load:
+        <button class="link" (click)="loadFail()">failure</button>
+        <button class="link" (click)="loadLatency()">latency</button>
+      </span>
+    </div>
+    <textarea [(ngModel)]="trace" spellcheck="false"></textarea>
+    <div class="controls">
+      <label class="lbl">mode</label>
+      <select [(ngModel)]="mode">
+        <option value="AUTO">auto</option>
+        <option value="FAILURE">failure</option>
+        <option value="LATENCY">latency</option>
+      </select>
+      <button class="solid" (click)="analyze()" [disabled]="loading()">
+        {{ loading() ? 'analyzing…' : 'analyze' }}
+      </button>
+    </div>
+    @if (error()) { <div class="err">{{ error() }}</div> }
+  </div>
+
+  @if (result(); as r) {
+    <div class="verdict" [class.v-fail]="r.mode === 'FAILURE'">
+      @if (r.mode === 'FAILURE' && r.failure; as f) {
+        <div class="v-line">
+          <span class="v-head fail">root cause: {{ f.rootCauses.length ? f.rootCauses.join(', ') : 'none' }}</span>
+          <span class="tag tag-{{ f.confidence.toLowerCase() }}">{{ f.confidence }} confidence</span>
+        </div>
+        <div class="v-reason">{{ f.reason }}</div>
+        <div class="v-meta">affected (cascade): {{ f.affectedServices.length ? f.affectedServices.join(', ') : 'none' }}</div>
+      }
+      @if (r.mode === 'LATENCY' && r.latency; as l) {
+        <div class="v-line">
+          <span class="v-head">latency sink: {{ l.sink }} &mdash; {{ round(l.contribution) }}% of request time</span>
+          <span class="tag tag-{{ l.confidence.toLowerCase() }}">{{ l.confidence }} confidence</span>
+        </div>
+        <div class="v-reason">{{ l.reason }}</div>
+      }
+    </div>
+
+    <div class="viz">
+      <div class="viz-panel">
+        <div class="lbl">// dependency graph</div>
+        <div class="scroll">
+          <svg [attr.viewBox]="'0 0 ' + graphW() + ' ' + graphH()"
+               [attr.width]="graphW()" [attr.height]="graphH()">
+            @for (e of edges(); track $index) {
+              <path [attr.d]="e.d" class="edge" />
+            }
+            @for (p of nodes(); track p.node.spanId) {
+              <g [class]="'node ' + nodeClass(p.node)">
+                <rect [attr.x]="p.x" [attr.y]="p.y" [attr.width]="NW" [attr.height]="NH" rx="4" />
+                <text [attr.x]="p.x + NW / 2" [attr.y]="p.y + 20" text-anchor="middle" class="n-name">{{ p.node.service }}</text>
+                <text [attr.x]="p.x + NW / 2" [attr.y]="p.y + 35" text-anchor="middle" class="n-tag">{{ nodeTag(p.node) }}</text>
+              </g>
+            }
+          </svg>
+        </div>
+        <div class="legend">
+          <span><i class="sw sw-root"></i>root cause</span>
+          <span><i class="sw sw-sink"></i>latency sink</span>
+          <span><i class="sw sw-err"></i>errored</span>
+          <span><i class="sw sw-ok"></i>healthy</span>
+        </div>
+      </div>
+
+      <div class="viz-panel">
+        <div class="lbl">// latency timeline</div>
+        <div class="scroll">
+          <svg [attr.viewBox]="'0 0 ' + timelineW + ' ' + timelineH()"
+               [attr.width]="timelineW" [attr.height]="timelineH()">
+            @for (b of bars(); track $index) {
+              <text [attr.x]="labelW - 8" [attr.y]="b.y + barH - 3" text-anchor="end"
+                    class="t-label" [class.t-sink]="b.sink">{{ b.label }}</text>
+              <rect [attr.x]="b.x" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="barH" rx="2"
+                    class="t-bar" [class.t-bar-sink]="b.sink" />
+              <text [attr.x]="b.x + b.w + 5" [attr.y]="b.y + barH - 3" class="t-dur">{{ b.dur }}ms</text>
+            }
+          </svg>
+        </div>
+
+        @if (r.mode === 'LATENCY' && r.latency; as l) {
+          <div class="breakdown">
+            <div class="lbl">// self time by service</div>
+            <table>
+              @for (s of l.breakdown; track s.service) {
+                <tr [class.row-sink]="s.service === l.sink">
+                  <td>{{ s.service }}</td>
+                  <td class="num">{{ s.exclusiveTime }} ms</td>
+                  <td class="num">{{ pct(s.contribution) }}</td>
+                </tr>
+              }
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</section>
