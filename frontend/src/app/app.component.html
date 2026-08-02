@@ -1,0 +1,32 @@
+<div class="page">
+  <header class="masthead">
+    <div class="brand">HEPHAESTUS<span class="brand-dim"> /trace-intelligence</span></div>
+    @if (api.token()) {
+      <div class="session">
+        <span class="who">{{ api.username() }}</span>
+        <button class="ghost" (click)="api.logout()">sign out</button>
+      </div>
+    }
+  </header>
+
+  @if (!api.token()) {
+    <section class="gate">
+      <div class="gate-title">// authenticate</div>
+      <div class="field">
+        <label>user</label>
+        <input [(ngModel)]="username" autocomplete="username" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label>pass</label>
+        <input type="password" [(ngModel)]="password" autocomplete="current-password" />
+      </div>
+      <button class="solid" (click)="login()" [disabled]="loading()">
+        {{ loading() ? 'authenticating…' : 'sign in' }}
+      </button>
+      @if (error()) { <div class="err">{{ error() }}</div> }
+      <div class="gate-hint">demo &mdash; admin/admin (ADMIN) · viewer/viewer (VIEWER)</div>
+    </section>
+  } @else {
+    <app-analyzer />
+  }
+</div>
