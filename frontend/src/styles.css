@@ -1,0 +1,24 @@
+:root {
+  --bg: #ffffff;
+  --green: #0b5e2e;          /* primary text */
+  --green-bright: #0e7a37;   /* accents / emphasis */
+  --green-dim: #6f9d81;      /* muted */
+  --line: #b9dcc6;           /* hairline borders */
+  --edge: #a6ccb4;           /* graph edges */
+  --danger: #b3261e;         /* the culprit — the one non-green */
+  --danger-line: #e0b4b1;
+  --mono: "JetBrains Mono", "SF Mono", "Cascadia Code", ui-monospace, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); }
+body {
+  font-family: var(--mono);
+  color: var(--green);
+  font-size: 13.5px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+button, input, select, textarea { font-family: var(--mono); color: var(--green); font-size: 13px; }
+::selection { background: #d3efdd; }
+a { color: var(--green-bright); }
