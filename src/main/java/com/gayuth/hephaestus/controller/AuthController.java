@@ -1,44 +1,68 @@
 package com.gayuth.hephaestus.controller;
 
+import com.gayuth.hephaestus.dto.AuthResponse;
 import com.gayuth.hephaestus.dto.LoginRequest;
-import com.gayuth.hephaestus.dto.LoginResponse;
+import com.gayuth.hephaestus.dto.RegisterRequest;
+import com.gayuth.hephaestus.persistence.User;
+import com.gayuth.hephaestus.persistence.UserRepository;
 import com.gayuth.hephaestus.security.JwtService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import java.util.Map;
 
-/** Exchanges username/password for a signed JWT. */
+/**
+ * Self-service auth: register a new account or log in, both returning a JWT.
+ */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
+    private final UserRepository users;
+    private final PasswordEncoder encoder;
     private final AuthenticationManager authManager;
     private final JwtService jwt;
 
-    public AuthController(AuthenticationManager authManager, JwtService jwt) {
+    public AuthController(UserRepository users, PasswordEncoder encoder,
+            AuthenticationManager authManager, JwtService jwt) {
+        this.users = users;
+        this.encoder = encoder;
         this.authManager = authManager;
         this.jwt = jwt;
     }
 
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody RegisterRequest req) {
+        String email = req.email() == null ? "" : req.email().trim().toLowerCase();
+        if (email.isBlank() || req.password() == null || req.password().length() < 6) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Email is required and password must be at least 6 characters."));
+        }
+        if (users.existsByEmail(email)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", "An account with that email already exists."));
+        }
+        users.save(new User(email, encoder.encode(req.password())));
+        return ResponseEntity.ok(new AuthResponse(jwt.issue(email), email));
+    }
+
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest req) {
+    public ResponseEntity<?> login(@RequestBody LoginRequest req) {
+        String email = req.email() == null ? "" : req.email().trim().toLowerCase();
         try {
-            Authentication auth = authManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(req.username(), req.password()));
-            List<String> roles = auth.getAuthorities().stream()
-                    .map(GrantedAuthority::getAuthority).toList();
-            return ResponseEntity.ok(new LoginResponse(jwt.issue(auth.getName(), roles), auth.getName(), roles));
+            authManager.authenticate(new UsernamePasswordAuthenticationToken(email, req.password()));
+            return ResponseEntity.ok(new AuthResponse(jwt.issue(email), email));
         } catch (BadCredentialsException e) {
-            return ResponseEntity.status(401).build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid email or password."));
         }
     }
 }
