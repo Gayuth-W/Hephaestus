@@ -1,11 +1,11 @@
 package com.gayuth.hephaestus;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -19,10 +19,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Full-stack integration test against a real Postgres (Testcontainers), with
- * security enabled. @ServiceConnection wires the datasource to the container,
- * overriding application.properties, so this runs anywhere Docker is available
- * (including GitHub Actions runners). Requires Docker to be running.
+ * Full-stack integration test against a real Postgres (Testcontainers).
+ * Exercises the real auth flow: register -> use the JWT -> analyze -> see your
+ * own report. Requires Docker to be running (GitHub runners have it).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -35,6 +34,9 @@ class HephaestusApplicationTests {
 
 	@Autowired
 	MockMvc mvc;
+
+	@Autowired
+	ObjectMapper objectMapper;
 
 	private static final String CASCADE = """
 			{"traceId":"it-cascade","spans":[
@@ -56,33 +58,24 @@ class HephaestusApplicationTests {
 	}
 
 	@Test
-	void loginReturnsTokenAndRoles() throws Exception {
-		mvc.perform(post("/api/auth/login")
+	void registerThenAnalyzeThenSeeOwnReport() throws Exception {
+		String body = mvc.perform(post("/api/auth/register")
 				.contentType("application/json")
-				.content("{\"username\":\"admin\",\"password\":\"admin\"}"))
+				.content("{\"email\":\"it@example.com\",\"password\":\"secret1\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.token").value(notNullValue()))
-				.andExpect(jsonPath("$.roles[0]").value("ROLE_ADMIN"));
-	}
+				.andExpect(jsonPath("$.email").value("it@example.com"))
+				.andReturn().getResponse().getContentAsString();
+		String token = objectMapper.readTree(body).get("token").asText();
 
-	@Test
-	@WithMockUser(username = "viewer", roles = { "VIEWER" })
-	void viewerCannotAnalyze() throws Exception {
 		mvc.perform(post("/api/traces/analyze")
-				.contentType("application/json").content(CASCADE))
-				.andExpect(status().isForbidden());
-	}
-
-	@Test
-	@WithMockUser(username = "admin", roles = { "ADMIN" })
-	void adminAnalyzesAndReportIsPersisted() throws Exception {
-		mvc.perform(post("/api/traces/analyze")
+				.header("Authorization", "Bearer " + token)
 				.contentType("application/json").content(CASCADE))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.mode").value("FAILURE"))
 				.andExpect(jsonPath("$.failure.rootCauses[0]").value("database"));
 
-		mvc.perform(get("/api/reports"))
+		mvc.perform(get("/api/reports").header("Authorization", "Bearer " + token))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(greaterThanOrEqualTo(1)))
 				.andExpect(jsonPath("$[0].traceId").value("it-cascade"));
