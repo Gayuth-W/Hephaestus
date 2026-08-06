@@ -13,9 +13,7 @@ import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * One stored trace analysis. Raw trace and result are kept verbatim as JSONB.
- */
+/** One stored trace analysis, owned by the user who created it. */
 @Entity
 @Table(name = "trace_reports")
 public class TraceReport {
@@ -28,6 +26,9 @@ public class TraceReport {
     private String traceId;
 
     private String mode;
+
+    @Column(name = "created_by")
+    private String createdBy; // owner's email
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -42,11 +43,12 @@ public class TraceReport {
     private String result;
 
     protected TraceReport() {
-    }
+    } // JPA
 
-    public TraceReport(String traceId, String mode, String rawTrace, String result) {
+    public TraceReport(String traceId, String mode, String createdBy, String rawTrace, String result) {
         this.traceId = traceId;
         this.mode = mode;
+        this.createdBy = createdBy;
         this.rawTrace = rawTrace;
         this.result = result;
     }
@@ -61,6 +63,10 @@ public class TraceReport {
 
     public String getMode() {
         return mode;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
     }
 
     public Instant getCreatedAt() {

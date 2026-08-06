@@ -7,15 +7,17 @@ import com.gayuth.hephaestus.persistence.ReportSummary;
 import com.gayuth.hephaestus.persistence.TraceReport;
 import com.gayuth.hephaestus.persistence.TraceReportRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Persists each analysis and serves saved reports + history. Decoupled from the
- * response DTO shape: the result object is serialized to JSON, and the mode is
- * read back out of that JSON rather than off a typed accessor.
+ * Persists each analysis against its owner and serves only that owner's
+ * reports.
+ * The result object is serialized to JSON; mode is read back out of it, so this
+ * stays decoupled from the response DTO shape.
  */
 @Service
 public class ReportService {
@@ -27,29 +29,28 @@ public class ReportService {
         this.repository = repository;
     }
 
-    /** Store one analysis; returns the new report id. */
-    public UUID save(String traceId, String rawTraceJson, Object result) {
+    /** Store one analysis owned by {@code owner}; returns the new report id. */
+    public UUID save(String owner, String traceId, String rawTraceJson, Object result) {
         String resultJson = write(result);
         String mode = readMode(resultJson);
-        return repository.save(new TraceReport(traceId, mode, rawTraceJson, resultJson)).getId();
+        return repository.save(new TraceReport(traceId, mode, owner, rawTraceJson, resultJson)).getId();
     }
 
-    /** Delete a report; returns false if it didn't exist. */
-    public boolean delete(UUID id) {
-        if (!repository.existsById(id)) {
-            return false;
-        }
-        repository.deleteById(id);
-        return true;
+    public List<ReportSummary> history(String owner) {
+        return repository.findSummariesByOwner(owner);
     }
 
-    public List<ReportSummary> history() {
-        return repository.findAllSummaries();
+    /** The stored analysis for one of the owner's reports, or empty. */
+    public Optional<JsonNode> result(UUID id, String owner) {
+        return repository.findByIdAndCreatedBy(id, owner).map(r -> read(r.getResult()));
     }
 
-    /** The stored analysis JSON for a report, or empty if the id is unknown. */
-    public Optional<JsonNode> result(UUID id) {
-        return repository.findById(id).map(r -> read(r.getResult()));
+    /**
+     * Delete one of the owner's reports; false if it doesn't exist or isn't theirs.
+     */
+    @Transactional
+    public boolean delete(UUID id, String owner) {
+        return repository.deleteByIdAndCreatedBy(id, owner) > 0;
     }
 
     private String write(Object o) {

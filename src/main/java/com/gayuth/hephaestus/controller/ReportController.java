@@ -10,10 +10,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
 
-/** Read-side: incident history and a single saved report. */
+/** The signed-in user's own incident history and reports. */
 @RestController
 @RequestMapping("/api/reports")
 public class ReportController {
@@ -25,19 +26,21 @@ public class ReportController {
     }
 
     @GetMapping
-    public List<ReportSummary> history() {
-        return reports.history();
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
-        return reports.delete(id) ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    public List<ReportSummary> history(Principal principal) {
+        return reports.history(principal.getName());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<JsonNode> byId(@PathVariable UUID id) {
-        return reports.result(id)
+    public ResponseEntity<JsonNode> byId(@PathVariable UUID id, Principal principal) {
+        return reports.result(id, principal.getName())
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id, Principal principal) {
+        return reports.delete(id, principal.getName())
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
     }
 }
