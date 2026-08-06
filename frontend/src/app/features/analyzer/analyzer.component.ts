@@ -1,7 +1,8 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, OnInit } from '@angular/core';
+import { DatePipe, LowerCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
-import { AnalyzeResponse, GraphNode } from '../../shared/models/models';
+import { AnalyzeResponse, GraphNode, ReportSummary } from '../../shared/models/models';
 
 interface PositionedNode { x: number; y: number; node: GraphNode; }
 interface Edge { d: string; }
@@ -31,7 +32,7 @@ const SAMPLE_LATENCY = `{
 @Component({
   selector: 'app-analyzer',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, DatePipe, LowerCasePipe],
   templateUrl: './analyzer.component.html',
   styleUrl: './analyzer.component.css'
 })
@@ -41,7 +42,8 @@ export class AnalyzerComponent {
   loading = signal(false);
   error = signal<string | null>(null);
   result = signal<AnalyzeResponse | null>(null);
-
+  history = signal<ReportSummary[]>([]);
+  historyLoading = signal(false);
   // node geometry (referenced by the template too)
   readonly NW = 150;
   readonly NH = 46;
@@ -56,7 +58,59 @@ export class AnalyzerComponent {
   bars = signal<Bar[]>([]);
   timelineH = signal(0);
 
-  constructor(private api: ApiService) { }
+  constructor(private api: ApiService) {}
+
+  ngOnInit(): void {
+    this.loadHistory();
+  }
+
+  loadHistory(): void {
+    this.historyLoading.set(true);
+    this.api.history().subscribe({
+      next: (h) => { this.history.set(h); this.historyLoading.set(false); },
+      error: () => this.historyLoading.set(false)
+    });
+  }
+
+  loadHistoryItem(id: string): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.api.getReport(id).subscribe({
+      next: (res) => { 
+        // Populate the trace input with the raw trace from the history
+        // Wait, the API doesn't return the raw trace in the AnalyzeResponse currently.
+        // It's okay, we can just show the result.
+        this.renderResult(res); 
+        this.loading.set(false); 
+      },
+      error: (err) => {
+        this.result.set(null);
+        this.error.set(this.messageFor(err));
+        this.loading.set(false);
+      }
+    });
+  }
+
+  downloadGraphSvg(): void {
+    const svgEl = document.getElementById('dep-graph-svg');
+    if (!svgEl) return;
+    const serializer = new XMLSerializer();
+    let source = serializer.serializeToString(svgEl);
+    if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+      source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+    }
+    if (!source.match(/^<svg[^>]+"http\:\/\/www\.w3\.org\/1999\/xlink"/)) {
+      source = source.replace(/^<svg/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+    }
+    source = '<?xml version="1.0" standalone="no"?>\r\n' + source;
+    const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "dependency-graph.svg";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
   loadFail(): void { this.trace = SAMPLE_FAIL; }
   loadLatency(): void { this.trace = SAMPLE_LATENCY; }
@@ -72,7 +126,11 @@ export class AnalyzerComponent {
     this.error.set(null);
     this.loading.set(true);
     this.api.analyze(parsed, this.mode).subscribe({
-      next: (res) => { this.renderResult(res); this.loading.set(false); },
+      next: (res) => { 
+        this.renderResult(res); 
+        this.loading.set(false); 
+        this.loadHistory(); // refresh history list
+      },
       error: (err) => {
         this.result.set(null);
         this.error.set(this.messageFor(err));
@@ -83,7 +141,6 @@ export class AnalyzerComponent {
 
   private messageFor(err: { status?: number; error?: { error?: string } }): string {
     if (err?.error?.error) { return err.error.error; }
-    if (err?.status === 403) { return 'Forbidden — analyzing traces needs the ADMIN role.'; }
     if (err?.status === 401) { return 'Session expired — sign in again.'; }
     return 'Request failed.';
   }

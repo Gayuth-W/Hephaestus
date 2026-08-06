@@ -1,4 +1,26 @@
-<section class="analyzer">
+<div class="analyzer-layout">
+  <aside class="history-sidebar">
+    <div class="h-title">// trace history</div>
+    @if (historyLoading()) {
+      <div class="h-empty">loading...</div>
+    } @else if (history().length === 0) {
+      <div class="h-empty">no traces analyzed yet</div>
+    } @else {
+      <div class="h-list">
+        @for (item of history(); track item.id) {
+          <div class="h-item" (click)="loadHistoryItem(item.id)">
+            <div class="h-item-head">
+              <span class="h-id" title="{{ item.traceId }}">{{ item.traceId || 'unknown' }}</span>
+              <span class="tag tag-ok">{{ item.mode | lowercase }}</span>
+            </div>
+            <div class="h-date">{{ item.createdAt | date:'short' }}</div>
+          </div>
+        }
+      </div>
+    }
+  </aside>
+
+  <section class="analyzer">
   <div class="input-block">
     <div class="input-head">
       <span class="lbl">// trace input</span>
@@ -44,10 +66,28 @@
 
     <div class="viz">
       <div class="viz-panel">
-        <div class="lbl">// dependency graph</div>
+        <div class="panel-head">
+          <div class="lbl">// dependency graph</div>
+          <button class="link btn-dl" (click)="downloadGraphSvg()">download svg</button>
+        </div>
         <div class="scroll">
-          <svg [attr.viewBox]="'0 0 ' + graphW() + ' ' + graphH()"
+          <svg id="dep-graph-svg" [attr.viewBox]="'0 0 ' + graphW() + ' ' + graphH()"
                [attr.width]="graphW()" [attr.height]="graphH()">
+            <style>
+              .edge { fill: none; stroke: #a6ccb4; stroke-width: 1.5; }
+              .node rect { stroke-width: 1.5; }
+              .n-ok rect { fill: #fff; stroke: #0e7a37; }
+              .n-ok .n-name { fill: #0b5e2e; }
+              .n-ok .n-tag { fill: #6f9d81; }
+              .n-sink rect { fill: #0e7a37; stroke: #0e7a37; }
+              .n-sink .n-name, .n-sink .n-tag { fill: #fff; }
+              .n-err rect { fill: #fff; stroke: #b3261e; }
+              .n-err .n-name, .n-err .n-tag { fill: #b3261e; }
+              .n-root rect { fill: #b3261e; stroke: #b3261e; }
+              .n-root .n-name, .n-root .n-tag { fill: #fff; }
+              .n-name { font-size: 12.5px; font-weight: 600; font-family: monospace; }
+              .n-tag { font-size: 10.5px; font-family: monospace; }
+            </style>
             @for (e of edges(); track $index) {
               <path [attr.d]="e.d" class="edge" />
             }
@@ -101,3 +141,4 @@
     </div>
   }
 </section>
+</div>

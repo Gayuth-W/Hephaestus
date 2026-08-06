@@ -33,3 +33,5 @@
 }
 .ghost:hover { border-color: var(--green-bright); }
 .err { color: var(--danger); margin-top: 12px; font-size: 12.5px; }
+
+.link { background: none; border: none; color: var(--green-bright); cursor: pointer; text-decoration: underline; padding: 0 2px; font-family: var(--mono); }

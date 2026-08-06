@@ -19,4 +19,5 @@ export interface AnalyzeResponse {
   failure: FailureView | null; latency: LatencyView | null;
   nodes: GraphNode[]; edges: GraphEdge[]; timeline: TimelineBar[]; totalDuration: number;
 }
-export interface LoginResponse { token: string; username: string; roles: string[]; }
+export interface AuthResponse { token: string; email: string; }
+export interface ReportSummary { id: string; traceId: string; mode: string; createdAt: string; }

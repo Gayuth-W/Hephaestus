@@ -1,32 +1,48 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, signal } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AnalyzeResponse, LoginResponse } from '../../shared/models/models';
+import { AnalyzeResponse, AuthResponse, ReportSummary } from '../../shared/models/models';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private tokenValue = signal<string | null>(null);
   readonly token = this.tokenValue.asReadonly();
-  readonly username = signal<string | null>(null);
+  readonly email = signal<string | null>(null);
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) {}
 
-  login(username: string, password: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>('/api/auth/login', { username, password });
+  login(email: string, password: string): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>('/api/auth/login', { email, password });
   }
 
-  setSession(res: LoginResponse): void {
+  register(email: string, password: string): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>('/api/auth/register', { email, password });
+  }
+
+  setSession(res: AuthResponse): void {
     this.tokenValue.set(res.token);
-    this.username.set(res.username);
+    this.email.set(res.email);
   }
 
   logout(): void {
     this.tokenValue.set(null);
-    this.username.set(null);
+    this.email.set(null);
   }
 
   analyze(trace: unknown, type: string): Observable<AnalyzeResponse> {
     return this.http.post<AnalyzeResponse>('/api/traces/analyze', { type, trace }, {
+      headers: new HttpHeaders({ Authorization: `Bearer ${this.tokenValue()}` })
+    });
+  }
+
+  history(): Observable<ReportSummary[]> {
+    return this.http.get<ReportSummary[]>('/api/reports', {
+      headers: new HttpHeaders({ Authorization: `Bearer ${this.tokenValue()}` })
+    });
+  }
+
+  getReport(id: string): Observable<AnalyzeResponse> {
+    return this.http.get<AnalyzeResponse>(`/api/reports/${id}`, {
       headers: new HttpHeaders({ Authorization: `Bearer ${this.tokenValue()}` })
     });
   }
