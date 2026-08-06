@@ -11,9 +11,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
-import java.util.List;
 
-/** Signs and verifies HS256 JWTs. Roles are carried as a claim. */
+/** Signs and verifies HS256 JWTs. The subject is the user's email. */
 @Service
 public class JwtService {
 
@@ -26,11 +25,10 @@ public class JwtService {
         this.expirationMinutes = expirationMinutes;
     }
 
-    public String issue(String username, List<String> roles) {
+    public String issue(String email) {
         Instant now = Instant.now();
         return Jwts.builder()
-                .subject(username)
-                .claim("roles", roles)
+                .subject(email)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(expirationMinutes, ChronoUnit.MINUTES)))
                 .signWith(key)
