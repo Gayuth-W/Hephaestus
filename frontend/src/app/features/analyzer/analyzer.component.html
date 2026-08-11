@@ -47,27 +47,26 @@
 
   @if (result(); as r) {
     <div class="verdict" [class.v-fail]="r.mode === 'FAILURE'">
-      @if (r.mode === 'FAILURE' && r.failure; as f) {
+      @if (r.failure.rootCauses.length > 0) {
         <div class="v-line">
-          <span class="v-head fail">root cause: {{ f.rootCauses.length ? f.rootCauses.join(', ') : 'none' }}</span>
-          <span class="tag tag-{{ f.confidence.toLowerCase() }}">{{ f.confidence }} confidence</span>
+          <span class="v-head fail">root cause: {{ r.failure.rootCauses.join(', ') }}</span>
+          <span class="tag tag-{{ r.failure.confidence.toLowerCase() }}">{{ r.failure.confidence }} confidence</span>
         </div>
-        <div class="v-reason">{{ f.reason }}</div>
-        <div class="v-meta">affected (cascade): {{ f.affectedServices.length ? f.affectedServices.join(', ') : 'none' }}</div>
+        <div class="v-reason">{{ r.failure.reason }}</div>
+        <div class="v-meta">affected (cascade): {{ r.failure.affectedServices.length ? r.failure.affectedServices.join(', ') : 'none' }}</div>
+        <div class="v-sep"></div>
       }
-      @if (r.mode === 'LATENCY' && r.latency; as l) {
-        <div class="v-line">
-          <span class="v-head">latency sink: {{ l.sink }} &mdash; {{ round(l.contribution) }}% of request time</span>
-          <span class="tag tag-{{ l.confidence.toLowerCase() }}">{{ l.confidence }} confidence</span>
-        </div>
-        <div class="v-reason">{{ l.reason }}</div>
-      }
+      <div class="v-line">
+        <span class="v-head">latency sink: {{ r.latency.sink }} &mdash; {{ round(r.latency.criticalShare) }}% of the {{ r.latency.criticalPathTime }}ms critical path</span>
+        <span class="tag tag-{{ r.latency.confidence.toLowerCase() }}">{{ r.latency.confidence }} confidence</span>
+      </div>
+      <div class="v-reason">{{ r.latency.reason }}</div>
     </div>
 
     <div class="viz">
       <div class="viz-panel">
         <div class="panel-head">
-          <div class="lbl">// dependency graph</div>
+          <div class="lbl">// call tree</div>
           <button class="link btn-dl" (click)="downloadGraphSvg()">download svg</button>
         </div>
         <div class="scroll">
@@ -103,7 +102,7 @@
         <div class="legend">
           <span><i class="sw sw-root"></i>root cause</span>
           <span><i class="sw sw-sink"></i>latency sink</span>
-          <span><i class="sw sw-err"></i>errored</span>
+          <span><i class="sw sw-err"></i>errored (cascade)</span>
           <span><i class="sw sw-ok"></i>healthy</span>
         </div>
       </div>
@@ -115,28 +114,37 @@
                [attr.width]="timelineW" [attr.height]="timelineH()">
             @for (b of bars(); track $index) {
               <text [attr.x]="labelW - 8" [attr.y]="b.y + barH - 3" text-anchor="end"
-                    class="t-label" [class.t-sink]="b.sink">{{ b.label }}</text>
+                    class="t-label" [class.t-sink]="b.sink" [class.t-err]="b.status === 'ERROR'">{{ b.label }}</text>
               <rect [attr.x]="b.x" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="barH" rx="2"
-                    class="t-bar" [class.t-bar-sink]="b.sink" />
+                    [class]="'t-bar ' + barClass(b)">
+                <title>{{ b.label }} &mdash; {{ b.dur }}ms, self {{ b.selfTime }}ms ({{ b.status }}{{ b.onCriticalPath ? ', on critical path' : '' }})</title>
+              </rect>
               <text [attr.x]="b.x + b.w + 5" [attr.y]="b.y + barH - 3" class="t-dur">{{ b.dur }}ms</text>
             }
           </svg>
         </div>
 
-        @if (r.mode === 'LATENCY' && r.latency; as l) {
-          <div class="breakdown">
-            <div class="lbl">// self time by service</div>
-            <table>
-              @for (s of l.breakdown; track s.service) {
-                <tr [class.row-sink]="s.service === l.sink">
-                  <td>{{ s.service }}</td>
-                  <td class="num">{{ s.exclusiveTime }} ms</td>
-                  <td class="num">{{ pct(s.contribution) }}</td>
-                </tr>
-              }
-            </table>
-          </div>
-        }
+        <div class="breakdown">
+          <div class="lbl">// critical path contribution</div>
+          <table>
+            <tr class="row-head">
+              <td>service</td>
+              <td class="num">self</td>
+              <td class="num">on path</td>
+              <td class="num">share</td>
+            </tr>
+            @for (s of r.latency.breakdown; track s.service) {
+              <tr [class.row-sink]="s.service === r.latency.sink"
+                  [class.row-offpath]="s.criticalPathTime === 0">
+                <td>{{ s.service }}</td>
+                <td class="num">{{ s.selfTime }} ms</td>
+                <td class="num">{{ s.criticalPathTime }} ms</td>
+                <td class="num">{{ pct(s.criticalShare) }}</td>
+              </tr>
+            }
+          </table>
+          <div class="v-meta">rows at 0 ms ran concurrently &mdash; speeding them up will not make the request faster.</div>
+        </div>
       </div>
     </div>
   }

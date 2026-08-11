@@ -201,6 +201,12 @@ select:focus {
   max-width: 74ch;
 }
 
+.v-sep {
+  height: 1px;
+  background: var(--line);
+  margin: 12px 0;
+}
+
 .v-meta {
   margin-top: 6px;
   color: var(--green-dim);
@@ -376,12 +382,37 @@ svg text {
   font-weight: 600;
 }
 
+.t-label.t-err {
+  fill: var(--danger);
+}
+
+/* Timeline bar states, most severe first. Every bar used to render identically
+   regardless of status, which made the timeline useless for debugging: you
+   could see how long each span took but not which ones failed. */
 .t-bar {
   fill: var(--green-bright);
   opacity: 0.28;
 }
 
-.t-bar.t-bar-sink {
+.t-bar-off {          /* healthy, off the critical path */
+  opacity: 0.18;
+}
+
+.t-bar-crit {         /* healthy, on the critical path */
+  opacity: 0.55;
+}
+
+.t-bar-sink {         /* the latency sink */
+  opacity: 1;
+}
+
+.t-bar-err {          /* failed, but a dependency failed too - a cascade */
+  fill: var(--danger);
+  opacity: 0.4;
+}
+
+.t-bar-cause {        /* the blamed span */
+  fill: var(--danger);
   opacity: 1;
 }
 
@@ -409,6 +440,19 @@ svg text {
 .breakdown td.num {
   text-align: right;
   color: var(--green-dim);
+}
+
+.breakdown tr.row-head td {
+  color: var(--green-dim);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Dimmed, not hidden: a service can be busy and still contribute nothing to
+   latency, and that contrast is the point of the column. */
+.breakdown tr.row-offpath td {
+  opacity: 0.5;
 }
 
 .breakdown tr.row-sink td {

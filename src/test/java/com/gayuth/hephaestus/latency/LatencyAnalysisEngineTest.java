@@ -29,21 +29,21 @@ class LatencyAnalysisEngineTest {
         LatencyResultDTO r = engine.analyze(TestTraces.graph("parallel-latency.json"));
         long paymentSelf = r.breakdown().stream()
                 .filter(s -> s.service().equals("payment-service"))
-                .findFirst().orElseThrow().exclusiveTime();
+                .findFirst().orElseThrow().selfTime();
         assertEquals(4500L, paymentSelf);
 
         // gateway 8000ms with children order[100,800] + payment[200,6400] -> union
         // [100,6400]=6300
         long gatewaySelf = r.breakdown().stream()
                 .filter(s -> s.service().equals("api-gateway"))
-                .findFirst().orElseThrow().exclusiveTime();
+                .findFirst().orElseThrow().selfTime();
         assertEquals(1700L, gatewaySelf);
     }
 
     @Test
     void noExclusiveTimeIsNegative() {
         LatencyResultDTO r = engine.analyze(TestTraces.graph("parallel-latency.json"));
-        assertTrue(r.breakdown().stream().allMatch(s -> s.exclusiveTime() >= 0));
+        assertTrue(r.breakdown().stream().allMatch(s -> s.selfTime() >= 0));
     }
 
     @Test

@@ -6,7 +6,10 @@ import { AnalyzeResponse, GraphNode, ReportSummary } from '../../shared/models/m
 
 interface PositionedNode { x: number; y: number; node: GraphNode; }
 interface Edge { d: string; }
-interface Bar { y: number; x: number; w: number; label: string; dur: number; sink: boolean; }
+interface Bar {
+  y: number; x: number; w: number; label: string; dur: number; selfTime: number;
+  status: string; rootCause: boolean; sink: boolean; onCriticalPath: boolean;
+}
 
 const SAMPLE_FAIL = `{
   "traceId": "cascade-1",
@@ -217,23 +220,39 @@ export class AnalyzerComponent {
       w: Math.max(3, (b.duration / total) * plotW),
       label: b.service.length > 16 ? b.service.slice(0, 15) + '…' : b.service,
       dur: b.duration,
-      sink: b.sink
+      selfTime: b.selfTime,
+      status: b.status,
+      rootCause: b.rootCause,
+      sink: b.sink,
+      onCriticalPath: b.onCriticalPath
     })));
     this.timelineH.set(PADT * 2 + res.timeline.length * ROWH);
   }
 
+  // Precedence must match barClass() exactly. It used to rank sink above
+  // ERROR while the timeline ranked ERROR above sink, so a failing span that
+  // also happened to be the latency sink rendered GREEN in the graph and RED
+  // in the timeline at the same time. Failure state always wins.
   nodeClass(n: GraphNode): string {
     if (n.rootCause) { return 'n-root'; }
-    if (n.sink) { return 'n-sink'; }
     if (n.status === 'ERROR') { return 'n-err'; }
+    if (n.sink) { return 'n-sink'; }
     return 'n-ok';
   }
 
   nodeTag(n: GraphNode): string {
     if (n.rootCause) { return 'root cause'; }
-    if (n.sink) { return 'self ' + n.exclusiveTime + 'ms'; }
     if (n.status === 'ERROR') { return 'errored'; }
+    if (n.sink) { return 'sink ' + n.selfTime + 'ms'; }
     return n.duration + 'ms';
+  }
+
+  barClass(b: Bar): string {
+    if (b.rootCause) { return 't-bar-cause'; }
+    if (b.status === 'ERROR') { return 't-bar-err'; }
+    if (b.sink) { return 't-bar-sink'; }
+    if (b.onCriticalPath) { return 't-bar-crit'; }
+    return 't-bar-off';
   }
 
   pct(x: number): string { return (x * 100).toFixed(1) + '%'; }
