@@ -1,4 +1,10 @@
 package com.gayuth.hephaestus.dto;
 
-public record ServiceSelf(String service, long exclusiveTime, double contribution) {
+/** UI projection of {@link ServiceLatencyDTO}. */
+public record ServiceSelf(
+        String service,
+        long selfTime,
+        double workShare,
+        long criticalPathTime,
+        double criticalShare) {
 }
