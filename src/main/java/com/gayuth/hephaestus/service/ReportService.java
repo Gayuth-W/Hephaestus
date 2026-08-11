@@ -1,26 +1,34 @@
 package com.gayuth.hephaestus.service;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gayuth.hephaestus.persistence.ReportSummary;
 import com.gayuth.hephaestus.persistence.TraceReport;
 import com.gayuth.hephaestus.persistence.TraceReportRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
 /**
  * Persists each analysis against its owner and serves only that owner's
- * reports.
- * The result object is serialized to JSON; mode is read back out of it, so this
- * stays decoupled from the response DTO shape.
+ * reports. The result object is serialized to JSON; mode is read back out of
+ * it, so this stays decoupled from the response DTO shape.
  */
 @Service
 public class ReportService {
+
+    /**
+     * The sidebar shows a scrollable list, not an archive. Capping here keeps
+     * the response and the query bounded without changing the API contract -
+     * the endpoint still returns a plain array, so the frontend is unaffected.
+     */
+    public static final int HISTORY_LIMIT = 50;
 
     private final TraceReportRepository repository;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -37,7 +45,7 @@ public class ReportService {
     }
 
     public List<ReportSummary> history(String owner) {
-        return repository.findSummariesByOwner(owner);
+        return repository.findSummariesByOwner(owner, PageRequest.of(0, HISTORY_LIMIT));
     }
 
     /** The stored analysis for one of the owner's reports, or empty. */
@@ -45,9 +53,7 @@ public class ReportService {
         return repository.findByIdAndCreatedBy(id, owner).map(r -> read(r.getResult()));
     }
 
-    /**
-     * Delete one of the owner's reports; false if it doesn't exist or isn't theirs.
-     */
+    /** Delete one of the owner's reports; false if it doesn't exist or isn't theirs. */
     @Transactional
     public boolean delete(UUID id, String owner) {
         return repository.deleteByIdAndCreatedBy(id, owner) > 0;
