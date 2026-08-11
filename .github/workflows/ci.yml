@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    # `dev` is where the work happens. With main-only triggers, every push to
+    # dev ran zero checks, so a compile break sat undetected until PR time.
+    branches: [ main, dev ]
   pull_request:
 
 jobs:
@@ -16,4 +18,9 @@ jobs:
           java-version: '17'
           cache: maven
       - name: Build and test
+        # The integration test boots a real Postgres via Testcontainers; GitHub
+        # runners provide Docker. A dummy secret is enough for the JWT signing
+        # key now that the property has no default.
+        env:
+          JWT_SECRET: ci-only-not-a-real-secret-value-at-least-32-bytes-long
         run: mvn -B verify

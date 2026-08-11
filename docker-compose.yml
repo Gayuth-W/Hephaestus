@@ -24,13 +24,24 @@ services:
       DB_URL: jdbc:postgresql://db:5432/hephaestus
       DB_USERNAME: hephaestus
       DB_PASSWORD: hephaestus
+      # Required. `?err` makes compose refuse to start rather than silently
+      # falling back to a committed placeholder, which is what used to happen.
+      # Generate one with: openssl rand -base64 48
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set - see .env.example}
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8080"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 40s
 
   frontend:
     build: ./frontend
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     ports:
       - "4200:80"
 
