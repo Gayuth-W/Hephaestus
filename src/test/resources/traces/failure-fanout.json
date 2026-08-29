@@ -1,0 +1,11 @@
+{
+  "traceId": "fanout-fail-1",
+  "spans": [
+    {"spanId":"a","parentSpanId":null,"serviceName":"api-gateway","startTime":0,"duration":900,"status":"ERROR"},
+    {"spanId":"b","parentSpanId":"a","serviceName":"order-service","startTime":30,"duration":800,"status":"ERROR"},
+    {"spanId":"c","parentSpanId":"b","serviceName":"payment-service","startTime":60,"duration":400,"status":"ERROR"},
+    {"spanId":"d","parentSpanId":"c","serviceName":"payment-db","startTime":90,"duration":120,"status":"OK"},
+    {"spanId":"e","parentSpanId":"b","serviceName":"inventory-service","startTime":80,"duration":350,"status":"ERROR"},
+    {"spanId":"f","parentSpanId":"e","serviceName":"inventory-db","startTime":110,"duration":90,"status":"OK"}
+  ]
+}

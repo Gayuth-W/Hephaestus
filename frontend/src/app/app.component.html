@@ -1,0 +1,36 @@
+<div class="page">
+  <header class="masthead">
+    <div class="brand">HEPHAESTUS<span class="brand-dim"> /trace-intelligence</span></div>
+    @if (api.token()) {
+      <div class="session">
+        <span class="who">{{ api.email() }}</span>
+        <button class="ghost" (click)="api.logout()">sign out</button>
+      </div>
+    }
+  </header>
+
+  @if (!api.token()) {
+    <section class="gate">
+      <div class="gate-title">// {{ mode() === 'signin' ? 'sign in' : 'create account' }}</div>
+      <div class="field">
+        <label>email</label>
+        <input type="email" [(ngModel)]="email" autocomplete="email" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label>pass</label>
+        <input type="password" [(ngModel)]="password"
+               [attr.autocomplete]="mode() === 'signin' ? 'current-password' : 'new-password'" />
+      </div>
+      <button class="solid" (click)="submit()" [disabled]="loading()">
+        {{ loading() ? 'working…' : (mode() === 'signin' ? 'sign in' : 'create account') }}
+      </button>
+      @if (error()) { <div class="err">{{ error() }}</div> }
+      <div class="gate-hint">
+        {{ mode() === 'signin' ? 'no account yet?' : 'already have one?' }}
+        <button class="link" (click)="toggle()">{{ mode() === 'signin' ? 'create one' : 'sign in' }}</button>
+      </div>
+    </section>
+  } @else {
+    <app-analyzer />
+  }
+</div>

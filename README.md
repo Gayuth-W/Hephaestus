@@ -1,56 +1,79 @@
-# Distributed Trace Intelligence Platform
+# Hephaestus — Distributed Trace Intelligence Platform
 
-A backend that ingests distributed traces and explains **why a request failed**
-and **where its latency went**. See `Distributed_Trace_Intelligence_Platform.md`
-for the full build plan and `user_system_flow.md` for the flows.
+Analyzes distributed traces and explains **why a request failed** (dependency-aware
+root cause analysis) and **where its latency went** (interval-union self-time).
+Backend at the repo root; the Angular UI is in `frontend/`.
 
-This repo is **milestone 1**: the dependency graph engine and the failure RCA
-engine, as a pure-Java core with no framework. The latency engine, the HTTP
-layer, persistence, and the demo page come next.
+## Auth model
 
-## What works now
+Self-service email + password. Anyone can register; there are no roles — every
+signed-in user can analyze traces and manage **their own** reports (reports are
+scoped to the user who created them).
 
-- **Graph construction** — two-pass build of a dependency tree from a flat span
-  list, with strict validation (unknown parent, duplicate id, multiple/zero roots).
-- **Failure RCA** — dependency-aware DFS that returns *all* deepest-failing
-  services (so independent failures aren't collapsed), separates cascade victims
-  from true causes, and derives a confidence level from the failure's shape.
-- **Trace parsing** — Jackson JSON → domain objects, isolated to one class so
-  the analysis core stays dependency-free.
+- `POST /api/auth/register` — `{ "email", "password" }` → `{ "token", "email" }`
+- `POST /api/auth/login` — `{ "email", "password" }` → `{ "token", "email" }`
+- `POST /api/traces/analyze` — analyze a trace (saved as yours)
+- `GET  /api/reports` — your incident history
+- `GET  /api/reports/{id}` — one of your reports
+- `DELETE /api/reports/{id}` — delete one of your reports
 
-## Layout
+All `/api/*` except `/api/auth/**` require `Authorization: Bearer <token>`.
 
-```
-com.trace.model    SpanDTO, SpanNode, TraceGraph, SpanStatus   (pure, no deps)
-com.trace.graph    TraceGraphBuilder, InvalidTraceException
-com.trace.rca      FailureRcaEngine, RcaResult, Confidence
-com.trace.ingest   TraceParser, ParsedTrace                    (only Jackson user)
-com.trace.Demo     load a trace -> build graph -> print RCA
-```
+## Stack
 
-## Run
+Java 17 · Spring Boot 3.3.5 · PostgreSQL (JSONB) · Flyway · Spring Security + JWT
+(DB-backed users) · JUnit 5 + Testcontainers · Docker Compose · GitHub Actions ·
+Angular 18 (frontend)
+
+## Run the backend
 
 ```bash
-mvn test                                         # unit tests (graph + RCA)
-mvn -q compile exec:java -Dexec.mainClass=com.trace.Demo
-mvn -q compile exec:java -Dexec.mainClass=com.trace.Demo -Dexec.args="demo/latency-payment.json"
+docker compose up --build      # app on :8080, Postgres on host :5433, Flyway migrates on boot
 ```
 
-The default demo trace is a four-service failure cascade; expect
-`Root cause: database`.
+Then register and use it:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"me@example.com","password":"secret1"}' | jq -r .token)
+
+curl -s -X POST http://localhost:8080/api/traces/analyze \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  --data @demo/failure-cascade.json
+```
+
+Postgres is on host port **5433** (so it won't clash with a local Postgres on 5432);
+override with `DB_URL`/`DB_USERNAME`/`DB_PASSWORD`. To run the app from Maven instead:
+`docker compose up -d db` then `mvn spring-boot:run`.
+
+## Run the frontend
+
+```bash
+cd frontend
+npm install
+npm start                      # http://localhost:4200, proxies /api -> :8080
+```
+
+Open http://localhost:4200, create an account, paste a trace, and get the
+dependency graph + latency timeline. Needs the backend running on :8080.
+
+## Tests
+
+```bash
+mvn test        # unit tests + a Testcontainers integration test (register -> analyze -> report)
+```
+
+The integration test starts its own Postgres, so **Docker must be running**.
 
 ## Trace format
 
 ```json
-{
-  "traceId": "checkout-1",
+{ "traceId": "checkout-1",
   "spans": [
-    { "spanId": "s1", "parentSpanId": null, "serviceName": "api-gateway",
-      "startTime": 0, "duration": 8000, "status": "OK" },
-    { "spanId": "s2", "parentSpanId": "s1", "serviceName": "payment-service",
-      "startTime": 200, "duration": 6200, "status": "OK", "attributes": {} }
-  ]
-}
+    { "spanId":"s1","parentSpanId":null,"serviceName":"api-gateway","startTime":0,"duration":8000,"status":"OK" },
+    { "spanId":"s2","parentSpanId":"s1","serviceName":"payment-service","startTime":200,"duration":6200,"status":"OK" }
+  ] }
 ```
 
-Times are milliseconds. `status` is `OK` or `ERROR`. Unknown fields are ignored.
+Times are milliseconds; `status` is `OK` or `ERROR`.

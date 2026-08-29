@@ -1,0 +1,7 @@
+{
+  "traceId": "bad-1",
+  "spans": [
+    {"spanId":"a","parentSpanId":null,"serviceName":"api-gateway","startTime":0,"duration":500,"status":"OK"},
+    {"spanId":"b","parentSpanId":"ghost","serviceName":"payment-service","startTime":50,"duration":300,"status":"OK"}
+  ]
+}

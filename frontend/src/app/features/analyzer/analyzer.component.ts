@@ -1,0 +1,260 @@
+import { Component, signal, OnInit } from '@angular/core';
+import { DatePipe, LowerCasePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ApiService } from '../../core/services/api.service';
+import { AnalyzeResponse, GraphNode, ReportSummary } from '../../shared/models/models';
+
+interface PositionedNode { x: number; y: number; node: GraphNode; }
+interface Edge { d: string; }
+interface Bar {
+  y: number; x: number; w: number; label: string; dur: number; selfTime: number;
+  status: string; rootCause: boolean; sink: boolean; onCriticalPath: boolean;
+}
+
+const SAMPLE_FAIL = `{
+  "traceId": "cascade-1",
+  "spans": [
+    {"spanId":"a","parentSpanId":null,"serviceName":"api-gateway","startTime":0,"duration":800,"status":"ERROR"},
+    {"spanId":"b","parentSpanId":"a","serviceName":"order-service","startTime":50,"duration":600,"status":"ERROR"},
+    {"spanId":"c","parentSpanId":"b","serviceName":"payment-service","startTime":100,"duration":400,"status":"ERROR"},
+    {"spanId":"d","parentSpanId":"c","serviceName":"database","startTime":150,"duration":120,"status":"ERROR"}
+  ]
+}`;
+
+const SAMPLE_LATENCY = `{
+  "traceId": "latency-parallel-1",
+  "spans": [
+    {"spanId":"a","parentSpanId":null,"serviceName":"api-gateway","startTime":0,"duration":8000,"status":"OK"},
+    {"spanId":"b","parentSpanId":"a","serviceName":"order-service","startTime":100,"duration":700,"status":"OK"},
+    {"spanId":"c","parentSpanId":"a","serviceName":"payment-service","startTime":200,"duration":6200,"status":"OK"},
+    {"spanId":"d","parentSpanId":"c","serviceName":"fraud-check","startTime":300,"duration":1200,"status":"OK"},
+    {"spanId":"e","parentSpanId":"c","serviceName":"card-network","startTime":800,"duration":1200,"status":"OK"}
+  ]
+}`;
+
+@Component({
+  selector: 'app-analyzer',
+  standalone: true,
+  imports: [FormsModule, DatePipe, LowerCasePipe],
+  templateUrl: './analyzer.component.html',
+  styleUrl: './analyzer.component.css'
+})
+export class AnalyzerComponent {
+  trace = SAMPLE_FAIL;
+  mode = 'AUTO';
+  loading = signal(false);
+  error = signal<string | null>(null);
+  result = signal<AnalyzeResponse | null>(null);
+  history = signal<ReportSummary[]>([]);
+  historyLoading = signal(false);
+  // node geometry (referenced by the template too)
+  readonly NW = 150;
+  readonly NH = 46;
+  readonly labelW = 128;
+  readonly barH = 16;
+  readonly timelineW = 460;
+
+  nodes = signal<PositionedNode[]>([]);
+  edges = signal<Edge[]>([]);
+  graphW = signal(0);
+  graphH = signal(0);
+  bars = signal<Bar[]>([]);
+  timelineH = signal(0);
+
+  constructor(private api: ApiService) {}
+
+  ngOnInit(): void {
+    this.loadHistory();
+  }
+
+  loadHistory(): void {
+    this.historyLoading.set(true);
+    this.api.history().subscribe({
+      next: (h) => { this.history.set(h); this.historyLoading.set(false); },
+      error: () => this.historyLoading.set(false)
+    });
+  }
+
+  loadHistoryItem(id: string): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.api.getReport(id).subscribe({
+      next: (res) => { 
+        // Populate the trace input with the raw trace from the history
+        // Wait, the API doesn't return the raw trace in the AnalyzeResponse currently.
+        // It's okay, we can just show the result.
+        this.renderResult(res); 
+        this.loading.set(false); 
+      },
+      error: (err) => {
+        this.result.set(null);
+        this.error.set(this.messageFor(err));
+        this.loading.set(false);
+      }
+    });
+  }
+
+  downloadGraphSvg(): void {
+    const svgEl = document.getElementById('dep-graph-svg');
+    if (!svgEl) return;
+    const serializer = new XMLSerializer();
+    let source = serializer.serializeToString(svgEl);
+    if (!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)) {
+      source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+    }
+    if (!source.match(/^<svg[^>]+"http\:\/\/www\.w3\.org\/1999\/xlink"/)) {
+      source = source.replace(/^<svg/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+    }
+    source = '<?xml version="1.0" standalone="no"?>\r\n' + source;
+    const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "dependency-graph.svg";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  loadFail(): void { this.trace = SAMPLE_FAIL; }
+  loadLatency(): void { this.trace = SAMPLE_LATENCY; }
+
+  analyze(): void {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(this.trace);
+    } catch {
+      this.error.set('Trace is not valid JSON.');
+      return;
+    }
+    this.error.set(null);
+    this.loading.set(true);
+    this.api.analyze(parsed, this.mode).subscribe({
+      next: (res) => { 
+        this.renderResult(res); 
+        this.loading.set(false); 
+        this.loadHistory(); // refresh history list
+      },
+      error: (err) => {
+        this.result.set(null);
+        this.error.set(this.messageFor(err));
+        this.loading.set(false);
+      }
+    });
+  }
+
+  private messageFor(err: { status?: number; error?: { error?: string } }): string {
+    if (err?.error?.error) { return err.error.error; }
+    if (err?.status === 401) { return 'Session expired — sign in again.'; }
+    return 'Request failed.';
+  }
+
+  private renderResult(res: AnalyzeResponse): void {
+    this.result.set(res);
+    this.layoutGraph(res);
+    this.layoutTimeline(res);
+  }
+
+  private layoutGraph(res: AnalyzeResponse): void {
+    const COLW = 172, ROWH = 96, PADX = 16, PADY = 14;
+    type N = GraphNode & { children: N[]; depth: number; slot: number };
+
+    const byId = new Map<string, N>();
+    res.nodes.forEach(n => byId.set(n.spanId, { ...n, children: [], depth: 0, slot: 0 }));
+
+    const hasParent = new Set<string>();
+    res.edges.forEach(e => {
+      hasParent.add(e.to);
+      const p = byId.get(e.from);
+      const c = byId.get(e.to);
+      if (p && c) { p.children.push(c); }
+    });
+
+    const rootMeta = res.nodes.find(n => !hasParent.has(n.spanId));
+    if (!rootMeta) { this.nodes.set([]); this.edges.set([]); this.graphW.set(0); this.graphH.set(0); return; }
+    const root = byId.get(rootMeta.spanId)!;
+
+    const sortCh = (n: N) => { n.children.sort((a, b) => a.startTime - b.startTime); n.children.forEach(sortCh); };
+    sortCh(root);
+
+    let leaf = 0, maxDepth = 0;
+    const assign = (n: N, depth: number) => {
+      n.depth = depth;
+      maxDepth = Math.max(maxDepth, depth);
+      if (n.children.length === 0) {
+        n.slot = leaf++;
+      } else {
+        n.children.forEach(c => assign(c, depth + 1));
+        n.slot = (n.children[0].slot + n.children[n.children.length - 1].slot) / 2;
+      }
+    };
+    assign(root, 0);
+
+    const flat: N[] = [];
+    const collect = (n: N) => { flat.push(n); n.children.forEach(collect); };
+    collect(root);
+
+    const cx = (n: N) => PADX + n.slot * COLW + this.NW / 2;
+    const cy = (n: N) => PADY + n.depth * ROWH + this.NH / 2;
+
+    this.nodes.set(flat.map(n => ({ x: PADX + n.slot * COLW, y: PADY + n.depth * ROWH, node: n })));
+
+    const edges: Edge[] = [];
+    flat.forEach(n => n.children.forEach(c => {
+      const x1 = cx(n), y1 = cy(n) + this.NH / 2, x2 = cx(c), y2 = cy(c) - this.NH / 2, my = (y1 + y2) / 2;
+      edges.push({ d: `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}` });
+    }));
+    this.edges.set(edges);
+
+    this.graphW.set(PADX * 2 + (leaf - 1) * COLW + this.NW);
+    this.graphH.set(PADY * 2 + maxDepth * ROWH + this.NH);
+  }
+
+  private layoutTimeline(res: AnalyzeResponse): void {
+    const ROWH = 30, PADT = 6, PADR = 46;
+    const total = res.totalDuration || Math.max(...res.timeline.map(b => b.startTime + b.duration), 1);
+    const plotW = this.timelineW - this.labelW - PADR;
+
+    this.bars.set(res.timeline.map((b, i) => ({
+      y: PADT + i * ROWH,
+      x: this.labelW + (b.startTime / total) * plotW,
+      w: Math.max(3, (b.duration / total) * plotW),
+      label: b.service.length > 16 ? b.service.slice(0, 15) + '…' : b.service,
+      dur: b.duration,
+      selfTime: b.selfTime,
+      status: b.status,
+      rootCause: b.rootCause,
+      sink: b.sink,
+      onCriticalPath: b.onCriticalPath
+    })));
+    this.timelineH.set(PADT * 2 + res.timeline.length * ROWH);
+  }
+
+  // Precedence must match barClass() exactly. It used to rank sink above
+  // ERROR while the timeline ranked ERROR above sink, so a failing span that
+  // also happened to be the latency sink rendered GREEN in the graph and RED
+  // in the timeline at the same time. Failure state always wins.
+  nodeClass(n: GraphNode): string {
+    if (n.rootCause) { return 'n-root'; }
+    if (n.status === 'ERROR') { return 'n-err'; }
+    if (n.sink) { return 'n-sink'; }
+    return 'n-ok';
+  }
+
+  nodeTag(n: GraphNode): string {
+    if (n.rootCause) { return 'root cause'; }
+    if (n.status === 'ERROR') { return 'errored'; }
+    if (n.sink) { return 'sink ' + n.selfTime + 'ms'; }
+    return n.duration + 'ms';
+  }
+
+  barClass(b: Bar): string {
+    if (b.rootCause) { return 't-bar-cause'; }
+    if (b.status === 'ERROR') { return 't-bar-err'; }
+    if (b.sink) { return 't-bar-sink'; }
+    if (b.onCriticalPath) { return 't-bar-crit'; }
+    return 't-bar-off';
+  }
+
+  pct(x: number): string { return (x * 100).toFixed(1) + '%'; }
+  round(x: number): number { return Math.round(x * 100); }
+}
